@@ -3,16 +3,18 @@
 #---------------------------------
 spool /tmp/msf-sql.log
 
+
 #---------------------------------
-# Setup global vars
+# Setup global vars - UPDATE THIS
 #---------------------------------
 setg USERNAME User1
 setg PASSWORD Password1
 setg USE_WINDOWS_AUTHENT true
 setg DOMAIN acme.com
 
+
 #---------------------------------
-# Identify live SQL Servers
+# Identify live SQL Servers - UPDATE THIS
 #---------------------------------
 use auxiliary/scanner/mssql/mssql_ping
 set rhosts file:///pentest/sql.txt
