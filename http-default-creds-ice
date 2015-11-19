@@ -27,7 +27,7 @@ class Metasploit3 < Msf::Auxiliary
       [
         Opt::RPORT(80),
         OptString.new('TARGETURI',
-          [ true, "The base path to NetFlow Analyzer", '/cgi-bin/Dataframe.cgi' ]),        
+          [ true, "The base path.", '/cgi-bin/Dataframe.cgi' ]),        
       ], self.class)
   end
 
@@ -36,7 +36,7 @@ class Metasploit3 < Msf::Auxiliary
 
     # Create HTTP request
     begin
-      print_status("#{peer} - Testing default credentiasl - install/install")
+      print_status("#{peer} - Testing default credentials - install/install")
       res = send_request_cgi({
         'method' => 'GET',
         'uri' => datastore['TARGETURI'],
