@@ -9,7 +9,7 @@ class Metasploit3 < Msf::Auxiliary
 
   include Msf::Auxiliary::Report
   include Msf::Exploit::Remote::HttpClient
-  #include Msf::Auxiliary::Scanner
+  include Msf::Auxiliary::Scanner
 
   def initialize
     super(
@@ -32,7 +32,7 @@ class Metasploit3 < Msf::Auxiliary
   end
 
 
-  def run
+  def run_host(ip)
 
     # Create HTTP request
     begin
